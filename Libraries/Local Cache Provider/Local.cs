@@ -203,6 +203,9 @@ namespace Codeology.SharpCache.Providers
                 // Get item
                 CacheItem item = cache[key];
 
+                // Touch item
+                item.Touch();
+
                 // Return
                 return item.Value;
             }
@@ -237,7 +240,7 @@ namespace Codeology.SharpCache.Providers
             CacheItem item = new CacheItem(value,dt);
 
             // Check memory, first pass
-            if ((CurrentMemory + item.ValueSize) >= MaxMemory) Purge();
+            if ((CurrentMemory + item.ValueSize) >= MaxMemory) Purge(item.ValueSize);
 
             // Check memory, second pass
             if ((CurrentMemory + item.ValueSize) >= MaxMemory) return;
@@ -315,9 +318,9 @@ namespace Codeology.SharpCache.Providers
             return "Local";
         }
 
-        private void Purge()
+        private void Purge(long memoryRequired)
         {
-
+            // TODO: Purge depending on purge kind
         }
 
         private void ThreadProc()
@@ -358,7 +361,7 @@ namespace Codeology.SharpCache.Providers
             set {
                 max_memory = value;
 
-                Purge();
+                // TODO: Should purge here as well?
             }
         }
 
