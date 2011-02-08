@@ -1,0 +1,7 @@
+
+/Bin
+/Applications/Demo/obj
+/Libraries/ASP.NET Cache Provider/obj
+/Libraries/Core/obj
+/Libraries/Local Cache Provider/obj
+*.suo
