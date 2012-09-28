@@ -1,7 +1,7 @@
 ﻿using System;
-//using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 using Codeology.SharpCache.Providers;
 
@@ -16,205 +16,321 @@ namespace Codeology.SharpCache
 
     }
 
-    public static class Cache
+    public delegate void CacheCallback(object state);
+    public delegate void CacheExistsCallback(bool exists, object state);
+    public delegate void CacheGetCallback(object value, object state);
+
+    public static class NewCache()
     {
-
-        #region Static Members
-
         private static bool has_init;
         private static bool has_uninit;
-        private static bool use_cache;
- 
-        private static Dictionary<string,CacheProvider> providers;
-        private static CacheProvider empty;
-        private static CacheProvider def;
 
-        static Cache()
+        private static object locker;
+        private static bool enabled;
+        private static int default_timeout;
+        private static ICacheProvider provider;
+
+        static NewCache()
         {
-            // Set up flags
+            // Set flags
             has_init = false;
-            has_uninit = false;
-            use_cache = false;
-        }
-
-        public static void Initialize()
-        {
-            // If already initialized return
-            if (has_init) return;
-
-            // Set up providers
-            providers = new Dictionary<string,CacheProvider>();
-            empty = new EmptyCacheProvider();
-            def = empty;
-
-            // Hook into AppDomain unloading
-            AppDomain.CurrentDomain.DomainUnload += new EventHandler(DomainUnload);
-
-            // Toggle
-            use_cache = true;
-            has_init = true;
-        }
-
-        private static void DomainUnload(object sender, EventArgs args)
-        {
-            // Uninitialize
-            Uninitialize();
-        }
-
-        public static void Uninitialize()
-        {
-            // If already uninitialized return
-            if (has_uninit) return;
-
-            // Toggle
             has_uninit = true;
 
-            // Clear down providers
-            List<string> names = new List<string>();
+            // Hook events
+            AppDomain.CurrentDomain.DomainUnload += new EventHandler(delegate(object sender, EventArgs e) {
+                Uninitialize();
+            });
+            AppDomain.CurrentDomain.ProcessExit += new EventHandler(delegate(object sender, EventArgs e) {
+                Uninitialize();   
+            });
 
-            foreach(string name in providers.Keys) names.Add(name);
-
-            foreach(string name in names) {
-                providers[name].Uninitialize();
-                providers.Remove(name);
-            }
+            // Initialize
+            Initialize();
         }
 
-        public static bool Use
+        #region Methods
+
+        private static void Initialize()
         {
-            get {
-                return use_cache;
-            }
-            set {
-                use_cache = value;
-            }
+            if (has_init) return;
+
+            locker = new object();
+            enabled = true;
+            default_timeout = 10;
+            provider = new NullCacheProvider();
+
+            has_init = true;
+            has_uninit = false;
         }
 
-        public static void RegisterProvider(CacheProvider cacheProvider)
+        private static void Uninitialize()
         {
-            // Check for existing registration
-            if (providers.ContainsKey(cacheProvider.Name)) throw new CacheException("A provider with that name is already registered.");
+            if (has_uninit) return;
 
-            // Add provider to known list
-            providers.Add(cacheProvider.Name,cacheProvider);
-
-            // Check default
-            if (def == null) {
-                def = cacheProvider;
-            } else if (String.Compare(def.Name,"Empty",true) == 0) {
-                def = cacheProvider;
-            }
-
-            // Initialize provider
-            cacheProvider.Initialize();
-        }
-
-        public static void UnregisterProvider(CacheProvider cacheProvider)
-        {
-            if (providers.ContainsKey(cacheProvider.Name)) {
-                // Remove provider
-                providers.Remove(cacheProvider.Name);
-
-                // Check provider wasn't default
-                if (def != null) {
-                    if (String.Compare(def.Name,cacheProvider.Name,true) == 0) {
-                        def = null;
-
-                        // Set new default
-                        if (providers.Count > 0) {
-                            foreach(KeyValuePair<string,CacheProvider> kvp in providers) {
-                                def = kvp.Value;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // Return
-                return;
+            // Uninitialize provider
+            if (provider != null) {
+                provider.Uninitialize();
+                provider = null;
             }
 
-            // Provider wasn't found
-            throw new CacheException("Could not find registered provider with given name.");
+            // Set flags
+            has_init = false;
+            has_uninit = true;
         }
 
-        public static object Get(string key)
+        public static string CreateKey(object value)
         {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
-
-            return def.Get(key);
+            return CreateCompoundKey(value);
         }
 
-        public static void Set(string key, object value)
+        public static string CreateCompoundKey(params object[] values)
         {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
+            // Create somewhere to store values
+            StringBuilder builder = new StringBuilder();
 
-            def.Set(key,value);
-        }
+            // Process values
+            for(int i = 0; i < values.Length; i++) {
+                builder.Append(CacheUtils.HashString(values[i].ToString()));
 
-        public static void Set(string key, object value, int minutes)
-        {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
+                if (i != (values.Length - 1)) builder.Append(":");
+            }
 
-            def.Set(key,value,minutes);
-        }
-
-        public static void Set(string key, object value, DateTime dt)
-        {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
-
-            def.Set(key,value,dt);
-        }
-
-        public static void Set(string key, object value, TimeSpan ts)
-        {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
-
-            def.Set(key,value,ts);
-        }
-
-        public static void Unset(string key)
-        {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
-
-            def.Unset(key);
-        }
-
-        public static bool Exists(string key)
-        {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
-
-            return def.Exists(key);
+            // Return
+            return builder.ToString();
         }
 
         public static void Clear()
         {
-            if (def == null) throw new CacheException("There is no default cache provider assigned.");
+            lock (locker) {
+                if (!enabled) return;
 
-            def.Clear();
+                provider.Clear();
+            }
         }
 
-        public static CacheProvider Default
+        public static bool Exists(string key)
+        {
+            lock (locker) {
+                if (!enabled) return false;
+
+                return provider.Exists(key);
+            }
+        }
+
+        public static object Get(string key)
+        {
+            lock (locker) {
+                if (!enabled) return null;
+
+                return provider.Get(key);
+            }
+        }
+
+        public static void Set(string key, object value)
+        {
+            int minutes;
+
+            lock (locker) {
+                minutes = default_timeout;
+            }
+
+            Set(key,value,minutes);
+        }
+
+        public static void Set(string key, object value, int minutes)
+        {
+            DateTime expires;
+
+            lock (locker) {
+                expires = DateTime.UtcNow.AddMinutes(minutes);
+            }
+
+            Set(key,value,expires);
+        }
+
+        public static void Set(string key, object value, TimeSpan ts)
+        {
+            DateTime expires;
+
+            lock (locker) {
+                expires = DateTime.UtcNow.Add(ts);
+            }
+
+            Set(key,value,expires);
+        }
+
+        public static void Set(string key, object value, DateTime dt)
+        {
+            lock (locker) {
+                if (!enabled) return;
+
+                provider.Set(key,value,dt);
+            }
+        }
+
+        public static void Unset(string key)
+        {
+            lock (locker) {
+                if (!enabled) return;
+
+                provider.Unset(key);
+            }
+        }
+
+        #endregion
+
+        #region Async Methods
+
+        public static void ClearAsync(CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Clear();
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void ExistsAsync(string key, CacheExistsCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                bool exists = Exists(key);
+
+                // Call callback
+                if (callback != null) callback(exists,o);
+            }),state);
+        }
+
+        public static void GetAsync(string key, CacheGetCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                object value = Get(key);
+
+                // Call callback
+                if (callback != null) callback(value,o);
+            }),state);
+        }
+
+        public static void SetAsync(string key, object value, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set(key,value);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void SetAsync(string key, object value, int minutes, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set(key,value,minutes);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void SetAsync(string key, object value, TimeSpan ts, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set(key,value,ts);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void SetAsync(string key, object value, DateTime dt, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set(key,value,dt);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void UnsetAsync(string key, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Unset(key);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        #endregion
+
+        #region Properties
+
+        public static bool Enabled
         {
             get {
-                return def;
+                lock (locker) {
+                    return enabled;
+                }
             }
             set {
-                def = value;
+                lock (locker) {
+                    enabled = value;
+                }
             }
         }
 
-        public static CacheProvider Empty
+        public static int DefaultTimeout
         {
             get {
-                return empty; 
+                lock (locker) {
+                    return default_timeout;
+                }
+            }
+            set {
+                lock (locker) {
+                    default_timeout = value;
+                }
+            }
+        }
+
+        public static ICacheProvider Provider
+        {
+            get {
+                lock (locker) {
+                    return provider;
+                }
+            }
+            set {
+                lock (locker) {
+                    if (value != provider) {
+                        // Uninitialize existing provider
+                        provider.Uninitialize();
+
+                        // Set new provider
+                        if (value == null) {
+                            provider = new NullCacheProvider();
+                        } else {
+                            provider = value;
+                        }
+
+                        // Initialize new provider
+                        provider.Initialize();
+                    }
+                }
             }
         }
 
         #endregion
 
     }
-
 
 
 

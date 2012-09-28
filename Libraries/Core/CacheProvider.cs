@@ -2,83 +2,75 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Codeology.SharpCache
+namespace Codeology.SharpCache.Providers
 {
 
-    public abstract class CacheProvider : IDisposable
+    public interface ICacheProvider
     {
-
-        private bool disposed;
-        private bool has_init;
-        private bool has_uninit;
-
-        public CacheProvider()
-        {
-            disposed = false;
-            has_init = false;
-            has_uninit = false;
-        }
 
         #region Methods
 
-        public void Dispose()
+        void Initialize();
+        void Uninitialize();
+
+        void Clear();
+        bool Exists(string key);
+        object Get(string key);
+        void Set(string key, object value, DateTime dt);
+        void Unset(string key);
+
+        #endregion
+
+        #region Properties
+
+        Guid Id
         {
-            if (!disposed) {
-                // Uninitialize cache provider
-                Uninitialize();
-
-                // Suppress GC finalization
-                GC.SuppressFinalize(this);
-
-                // Mark as disposed
-                disposed = true;
-            }
+            get;
         }
+
+        string Name
+        {
+            get;
+        }
+
+        #endregion
+
+    }
+
+    public abstract class CacheProvider : ICacheProvider
+    {
+
+        #region Methods
 
         public virtual void Initialize()
         {
-            // If already init, return
-            if (has_init) return;
-
-            // Toggle
-            has_init = true;
+            // Do nothing...
         }
-        
+
         public virtual void Uninitialize()
         {
-            // If already uninit, return
-            if (has_uninit) return;
-
-            // Toggle
-            has_uninit = true;
+            // Do nothing...
         }
 
+        public abstract void Clear();
+        public abstract bool Exists(string key);
         public abstract object Get(string key);
-
-        public abstract void Set(string key, object value);
-        public abstract void Set(string key, object value, int minutes);
         public abstract void Set(string key, object value, DateTime dt);
-        public abstract void Set(string key, object value, TimeSpan ts);
-
         public abstract void Unset(string key);
 
-        public abstract bool Exists(string key);
-
-        public virtual void Clear()
-        {
-            // Do nothing in the base
-        }
-
-        public virtual void ClearByKey(string key)
-        {
-            // Do nothing in the base
-        }
-
+        protected abstract Guid GetId();
         protected abstract string GetName();
 
         #endregion
 
         #region Properties
+
+        public Guid Id
+        {
+            get {
+                return GetId();
+            }
+        }
 
         public string Name
         {
@@ -87,18 +79,51 @@ namespace Codeology.SharpCache
             }
         }
 
-        protected bool HasInitialized
+        #endregion
+
+    }
+
+    public class NullCacheProvider : CacheProvider
+    {
+
+        private const string PROVIDER_ID = "{D57E2BE7-2152-46C8-885F-882B6B55E3C7}";
+        private const string PROVIDER_NAME = "Null";
+
+        #region Methods
+
+        public override void Clear()
         {
-            get {
-                return has_init;
-            }
+            // Do nothing...
         }
 
-        protected bool HasUninitialized
+        public override bool Exists(string key)
         {
-            get {
-                return has_uninit;
-            }
+            return false;
+        }
+
+        public override object Get(string key)
+        {
+            return null;
+        }
+
+        public override void Set(string key, object value, DateTime dt)
+        {
+            // Do nothing...
+        }
+
+        public override void Unset(string key)
+        {
+            // Do nothing...
+        }
+
+        protected override Guid GetId()
+        {
+            return new Guid(PROVIDER_ID);
+        }
+
+        protected override string GetName()
+        {
+            return PROVIDER_NAME;
         }
 
         #endregion
