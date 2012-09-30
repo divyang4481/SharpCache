@@ -37,10 +37,16 @@ namespace Codeology.SharpCache.Providers
 
     }
 
-    public abstract class CacheProvider : ICacheProvider
+    public abstract class CacheProvider : ICacheProvider, IDisposable
     {
 
         #region Methods
+
+        public void Dispose()
+        {
+            Uninitialize();
+            GC.SuppressFinalize(this);
+        }
 
         public virtual void Initialize()
         {

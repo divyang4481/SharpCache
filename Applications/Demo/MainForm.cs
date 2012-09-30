@@ -21,18 +21,13 @@ namespace Demo
         {
             InitializeComponent();
 
-            // Initialize cache
-            Cache.Initialize();
-
-            // Add provider
-            provider = new LocalCacheProvider();
-
-            Cache.RegisterProvider(provider);
+            // Set provider
+            Cache.Provider = new LocalCacheProvider();
         }
 
         private void btnSet_Click(object sender, EventArgs e)
         {
-            Cache.Set(txtKey.Text,txtValue.Text);
+            Cache.Set(txtKey.Text,txtValue.Text,1);
 
             txtKey.Clear();
             txtValue.Clear();
@@ -64,7 +59,7 @@ namespace Demo
 
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            Cache.Uninitialize();
+            Cache.Provider = null;
         }
 
     }

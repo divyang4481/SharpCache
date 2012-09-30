@@ -21,11 +21,13 @@ namespace Codeology.SharpCache.Providers
 
             public byte[] Value;
             public DateTime Cached;
+            public DateTime Expires;
 
         }
 
         private object locker;
         private long max_memory;
+        private long cache_memory;
         private Dictionary<string,CachedItem> cache;
         private bool thread_terminate;
         private Thread thread;
@@ -34,6 +36,7 @@ namespace Codeology.SharpCache.Providers
         {
             locker = new object();
             max_memory = (1024 * 1000) * 100; // Default 100mb max memory
+            cache_memory = 0;
             cache = new Dictionary<string,CachedItem>();
             thread_terminate = false;
             thread = null;
@@ -43,47 +46,95 @@ namespace Codeology.SharpCache.Providers
 
         public override void Initialize()
         {
-            if (thread != null) return;
+            lock (locker) {
+                // If thread is already running, return
+                if (thread != null) return;
 
-            // Reset thread terminate flag
-            thread_terminate = false;
+                // Reset thread terminate flag
+                thread_terminate = false;
 
-            // Create thread and start
-            thread = new Thread(new ThreadStart(ThreadProc));
-            thread.Priority = ThreadPriority.BelowNormal;
-            thread.Start();
+                // Create thread and start
+                thread = new Thread(new ThreadStart(ThreadProc));
+                thread.IsBackground = true;
+                thread.Priority = ThreadPriority.BelowNormal;
+                thread.Start();
+            }
         }
 
         public override void Uninitialize()
         {
-            if (thread == null) return;
-
-            // Signal thread to stop
             lock (locker) {
+                // If thread is not running, return
+                if (thread == null) return;
+
+                // Signal thread to stop
                 thread_terminate = true;
             }
 
-            // Wait for thread to stop then nullify
-            thread.Join();
-            thread = null;
+            // Wait for thread to stop
+            while (true) {
+                lock (locker) {
+                    if (thread == null) break;
+                }
+
+                Thread.Sleep(100);
+            }
         }
 
         private void ThreadProc()
         {
             while (true) {
-                // Check for thread terminate
                 lock (locker) {
+                    // Check for thread terminate
                     if (thread_terminate) break;
-                }
 
-                //
+                    // While cache memory exceeds maximum memory
+                    while (cache_memory > max_memory) {
+                        // Get oldest cached item key
+                        string oldest_key = GetOldestCachedItem();
+
+                        // If we have a key, remove it from the cache
+                        if (!String.IsNullOrEmpty(oldest_key)) cache.Remove(oldest_key);
+                    }
+
+                    // Create list to store expired keys
+                    List<string> expired_keys = new List<string>();
+
+                    // Process cache for expired keys
+                    foreach(KeyValuePair<string,CachedItem> kvp in cache) {
+                        if (kvp.Value.Expires <= DateTime.UtcNow) expired_keys.Add(kvp.Key); 
+                    }
+
+                    // Remove expired cached items
+                    foreach(string key in expired_keys) cache.Remove(key);
+                }
 
                 // Sleep for a bit
                 Thread.Sleep(1000);
             }
+
+            // Nullify thread
+            lock (locker) {
+                thread = null;
+            }
         }
 
-        private CachedItem Serialize(object value)
+        private string GetOldestCachedItem()
+        {
+            DateTime dt = DateTime.UtcNow;
+            string key = String.Empty;
+
+            foreach(KeyValuePair<string,CachedItem> kvp in cache) {
+                if (kvp.Value.Cached < dt) {
+                    dt = kvp.Value.Cached;
+                    key = kvp.Key;
+                }
+            }
+
+            return key;
+        }
+
+        private CachedItem Serialize(object value, DateTime expires)
         {
             // Open memory stream
             MemoryStream mem = new MemoryStream();
@@ -99,6 +150,7 @@ namespace Codeology.SharpCache.Providers
 
                 item.Value = mem.ToArray();
                 item.Cached = DateTime.UtcNow;
+                item.Expires = expires;
 
                 // Return
                 return item;
@@ -165,7 +217,10 @@ namespace Codeology.SharpCache.Providers
                 if (cache.ContainsKey(key)) cache.Remove(key);
 
                 // Serialize value to item
-                CachedItem item = Serialize(value);
+                CachedItem item = Serialize(value,dt);
+
+                // Increment cache size
+                cache_memory += item.Value.LongLength;
 
                 // Add item to cache
                 cache.Add(key,item);
@@ -175,7 +230,17 @@ namespace Codeology.SharpCache.Providers
         public override void Unset(string key)
         {
             lock (locker) {
-                if (cache.ContainsKey(key)) cache.Remove(key);
+                // If cache contains the key
+                if (cache.ContainsKey(key)) {
+                    // Get cached item
+                    CachedItem item = cache[key];
+
+                    // Decrement cache size
+                    cache_memory -= item.Value.LongLength;
+
+                    // Remove item from cache
+                    cache.Remove(key);
+                }
             }
         }
 
@@ -203,6 +268,15 @@ namespace Codeology.SharpCache.Providers
             set {
                 lock (locker) {
                     max_memory = value;
+                }
+            }
+        }
+
+        public long CacheMemory
+        {
+            get {
+                lock (locker) {
+                    return cache_memory;
                 }
             }
         }

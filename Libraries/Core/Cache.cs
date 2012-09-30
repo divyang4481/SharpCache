@@ -20,30 +20,16 @@ namespace Codeology.SharpCache
     public delegate void CacheExistsCallback(bool exists, object state);
     public delegate void CacheGetCallback(object value, object state);
 
-    public static class NewCache()
+    public static class Cache
     {
-        private static bool has_init;
-        private static bool has_uninit;
 
         private static object locker;
         private static bool enabled;
         private static int default_timeout;
         private static ICacheProvider provider;
 
-        static NewCache()
+        static Cache()
         {
-            // Set flags
-            has_init = false;
-            has_uninit = true;
-
-            // Hook events
-            AppDomain.CurrentDomain.DomainUnload += new EventHandler(delegate(object sender, EventArgs e) {
-                Uninitialize();
-            });
-            AppDomain.CurrentDomain.ProcessExit += new EventHandler(delegate(object sender, EventArgs e) {
-                Uninitialize();   
-            });
-
             // Initialize
             Initialize();
         }
@@ -52,30 +38,12 @@ namespace Codeology.SharpCache
 
         private static void Initialize()
         {
-            if (has_init) return;
+            if (locker != null) return;
 
             locker = new object();
             enabled = true;
             default_timeout = 10;
             provider = new NullCacheProvider();
-
-            has_init = true;
-            has_uninit = false;
-        }
-
-        private static void Uninitialize()
-        {
-            if (has_uninit) return;
-
-            // Uninitialize provider
-            if (provider != null) {
-                provider.Uninitialize();
-                provider = null;
-            }
-
-            // Set flags
-            has_init = false;
-            has_uninit = true;
         }
 
         public static string CreateKey(object value)
