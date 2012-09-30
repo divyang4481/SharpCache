@@ -8,9 +8,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("Local Cache Provider")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Microsoft")]
-[assembly: AssemblyProduct("Local Cache Provider")]
-[assembly: AssemblyCopyright("Copyright © Microsoft 2011")]
+[assembly: AssemblyCompany("Codeology")]
+[assembly: AssemblyProduct("SharpCache")]
+[assembly: AssemblyCopyright("Copyright ©2011-2012 Lloyd Kinsella")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

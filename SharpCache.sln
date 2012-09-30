@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Local Cache Provider", "Lib
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo", "Applications\Demo\Demo.csproj", "{D6AA036E-0ABE-4941-9BFE-0832FF469CF2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Memcached Cache Provider", "Libraries\Memcached Cache Provider\Memcached Cache Provider.csproj", "{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,16 @@ Global
 		{D6AA036E-0ABE-4941-9BFE-0832FF469CF2}.Release|Mixed Platforms.Build.0 = Release|x86
 		{D6AA036E-0ABE-4941-9BFE-0832FF469CF2}.Release|x86.ActiveCfg = Release|x86
 		{D6AA036E-0ABE-4941-9BFE-0832FF469CF2}.Release|x86.Build.0 = Release|x86
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

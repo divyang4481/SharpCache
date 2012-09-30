@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("ASP.NET Cache Provider")]
+[assembly: AssemblyTitle("Memcache Cache Provider")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Codeology")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("e40d6c95-f74c-476f-8b23-560338989465")]
+[assembly: Guid("63cd1fd4-292f-4555-b618-0e01a771bcb3")]
 
 // Version information for an assembly consists of the following four values:
 //

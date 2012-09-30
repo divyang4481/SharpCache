@@ -81,6 +81,10 @@
       <Project>{14F810B4-4E90-46AC-AD48-4A0283FFD9A4}</Project>
       <Name>Local Cache Provider</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Libraries\Memcached Cache Provider\Memcached Cache Provider.csproj">
+      <Project>{6AA1FCFC-7DB4-49F2-A709-2F51EA5BBA28}</Project>
+      <Name>Memcached Cache Provider</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
