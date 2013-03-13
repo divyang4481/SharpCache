@@ -21,8 +21,13 @@ namespace Demo
         {
             InitializeComponent();
 
-            // Set provider
-            Cache.Provider = new LocalCacheProvider();
+            // Create provider
+            ICacheProvider provider = new LocalCacheProvider();
+
+            provider.Initialize();
+
+            // Register provider
+            Cache.RegisterProvider(provider,true);
         }
 
         private void btnSet_Click(object sender, EventArgs e)
@@ -59,7 +64,7 @@ namespace Demo
 
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            Cache.Provider = null;
+            Cache.DefaultProvider.Uninitialize();
         }
 
     }

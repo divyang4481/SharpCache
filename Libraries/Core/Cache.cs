@@ -24,10 +24,74 @@ namespace Codeology.SharpCache
     public static class Cache
     {
 
+        public class CacheProviders
+        {
+
+            private object locker;
+            private List<ICacheProvider> providers;
+
+            internal CacheProviders(object locker, List<ICacheProvider> providers)
+            {
+                this.locker = locker;
+                this.providers = providers;
+            }
+
+            #region Properties
+
+            public int Count
+            {
+                get {
+                    lock (locker) {
+                        return providers.Count;
+                    }
+                }
+            }
+
+            public ICacheProvider this[int index]
+            {
+                get {
+                    lock (locker) {
+                        return providers[index];
+                    }
+                }
+            }
+
+            public ICacheProvider this[Guid id]
+            {
+                get {
+                    lock (locker) {
+                        foreach(ICacheProvider provider in providers) {
+                            if (provider.Id == id) return provider;
+                        }
+                    }
+
+                    return null;
+                }
+            }
+
+            public ICacheProvider this[string name]
+            {
+                get {
+                    lock (locker) {
+                        foreach(ICacheProvider provider in providers) {
+                            if (String.Compare(provider.Name,name,true) == 0) return provider;
+                        }
+                    }
+
+                    return null;
+                }
+            }
+
+            #endregion
+
+        }
+
         private static object locker;
         private static bool enabled;
         private static int default_timeout;
-        private static ICacheProvider provider;
+        private static ICacheProvider default_provider;
+        private static List<ICacheProvider> providers;
+        private static CacheProviders providers_wrapper;
 
         static Cache()
         {
@@ -44,7 +108,50 @@ namespace Codeology.SharpCache
             locker = new object();
             enabled = true;
             default_timeout = 10;
-            provider = new NullCacheProvider();
+
+            ICacheProvider null_provider = new NullCacheProvider();
+
+            default_provider = null_provider;
+            providers = new List<ICacheProvider>();
+            
+            RegisterProvider(null_provider);
+
+            providers_wrapper = new CacheProviders(locker,providers);
+        }
+
+        public static void RegisterProvider(ICacheProvider provider)
+        {
+            RegisterProvider(provider,false);
+        }
+
+        public static void RegisterProvider(ICacheProvider provider, bool makeDefault)
+        {
+            lock (locker) {
+                // Look for existing provider
+                foreach(ICacheProvider prov in providers) {
+                    if (prov.Id == provider.Id || String.Compare(prov.Name,provider.Name,true) == 0) throw new CacheException("Cache provider is already registered.");
+                }
+
+                // Add new provider
+                providers.Add(provider);
+
+                // Set default if required
+                if (makeDefault) default_provider = provider;
+            }
+        }
+
+        public static void UnregisterProvider(ICacheProvider provider)
+        {
+            lock (locker) {
+                // Check provider is registered
+                if (!providers.Contains(provider)) return;
+
+                // If provider is default
+                if (provider == default_provider) default_provider = new NullCacheProvider();
+
+                // Remove provider
+                providers.Remove(provider);
+            }
         }
 
         public static string CreateKey(object value)
@@ -73,7 +180,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                provider.Clear();
+                default_provider.Clear();
             }
         }
 
@@ -82,7 +189,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return false;
 
-                return provider.Exists(key);
+                return default_provider.Exists(key);
             }
         }
 
@@ -91,7 +198,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return null;
 
-                return provider.Get(key);
+                return default_provider.Get(key);
             }
         }
 
@@ -100,7 +207,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return default(T);
 
-                object result = provider.Get(key);
+                object result = default_provider.Get(key);
 
                 if (result == null) {
                     return default(T);
@@ -181,7 +288,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                provider.Set(key,value,dt);
+                default_provider.Set(key,value,dt);
             }
         }
 
@@ -190,7 +297,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                provider.Set(key,value,dt);
+                default_provider.Set(key,value,dt);
             }
         }
 
@@ -199,7 +306,7 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                provider.Unset(key);
+                default_provider.Unset(key);
             }
         }
 
@@ -382,30 +489,34 @@ namespace Codeology.SharpCache
             }
         }
 
-        public static ICacheProvider Provider
+        public static ICacheProvider DefaultProvider
         {
             get {
                 lock (locker) {
-                    return provider;
+                    return default_provider;
                 }
             }
             set {
                 lock (locker) {
-                    if (value != provider) {
-                        // Uninitialize existing provider
-                        provider.Uninitialize();
+                    if (default_provider != value) {
+                        // Check provider is registered
+                        if (!providers.Contains(value)) throw new CacheException("Cache provider is not registered.");
 
-                        // Set new provider
+                        // If null create new null provider otherwise just assign
                         if (value == null) {
-                            provider = new NullCacheProvider();
+                            default_provider = new NullCacheProvider();
                         } else {
-                            provider = value;
+                            default_provider = value;
                         }
-
-                        // Initialize new provider
-                        provider.Initialize();
                     }
                 }
+            }
+        }
+
+        public static CacheProviders Providers
+        {
+            get {
+                return providers_wrapper;
             }
         }
 
