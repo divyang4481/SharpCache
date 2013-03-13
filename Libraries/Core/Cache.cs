@@ -166,13 +166,13 @@ namespace Codeology.SharpCache
 
             // Process values
             for(int i = 0; i < values.Length; i++) {
-                builder.Append(CacheUtils.HashString(values[i].ToString()));
+                builder.Append(values[i] == null ? "null" : values[i].ToString());
 
                 if (i != (values.Length - 1)) builder.Append(":");
             }
 
             // Return
-            return builder.ToString();
+            return CacheUtils.HashString(builder.ToString());
         }
 
         public static void Clear()
