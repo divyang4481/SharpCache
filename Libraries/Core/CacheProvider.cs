@@ -37,7 +37,7 @@ namespace Codeology.SharpCache.Providers
 
     }
 
-    public abstract class CacheProvider : ICacheProvider, IDisposable
+    public abstract class CacheProvider : IDisposable, ICacheProvider
     {
 
         #region Methods

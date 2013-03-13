@@ -19,6 +19,7 @@ namespace Codeology.SharpCache
     public delegate void CacheCallback(object state);
     public delegate void CacheExistsCallback(bool exists, object state);
     public delegate void CacheGetCallback(object value, object state);
+    public delegate void CacheGetCallback<T>(T value, object state);
 
     public static class Cache
     {
@@ -94,6 +95,21 @@ namespace Codeology.SharpCache
             }
         }
 
+        public static T Get<T>(string key)
+        {
+            lock (locker) {
+                if (!enabled) return default(T);
+
+                object result = provider.Get(key);
+
+                if (result == null) {
+                    return default(T);
+                } else {
+                    return (T)result;
+                }
+            }
+        }
+
         public static void Set(string key, object value)
         {
             int minutes;
@@ -103,6 +119,17 @@ namespace Codeology.SharpCache
             }
 
             Set(key,value,minutes);
+        }
+
+        public static void Set<T>(string key, T value)
+        {
+            int minutes;
+
+            lock (locker) {
+                minutes = default_timeout;
+            }
+
+            Set<T>(key,value,minutes);
         }
 
         public static void Set(string key, object value, int minutes)
@@ -116,6 +143,17 @@ namespace Codeology.SharpCache
             Set(key,value,expires);
         }
 
+        public static void Set<T>(string key, T value, int minutes)
+        {
+            DateTime expires;
+
+            lock (locker) {
+                expires = DateTime.UtcNow.AddMinutes(minutes);
+            }
+
+            Set<T>(key,value,expires);
+        }
+
         public static void Set(string key, object value, TimeSpan ts)
         {
             DateTime expires;
@@ -127,7 +165,27 @@ namespace Codeology.SharpCache
             Set(key,value,expires);
         }
 
+        public static void Set<T>(string key, T value, TimeSpan ts)
+        {
+            DateTime expires;
+
+            lock (locker) {
+                expires = DateTime.UtcNow.Add(ts);
+            }
+
+            Set<T>(key,value,expires);
+        }
+
         public static void Set(string key, object value, DateTime dt)
+        {
+            lock (locker) {
+                if (!enabled) return;
+
+                provider.Set(key,value,dt);
+            }
+        }
+
+        public static void Set<T>(string key, object value, DateTime dt)
         {
             lock (locker) {
                 if (!enabled) return;
@@ -182,11 +240,33 @@ namespace Codeology.SharpCache
             }),state);
         }
 
+        public static void GetAsync<T>(string key, CacheGetCallback<T> callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                T value = Get<T>(key);
+
+                // Call callback
+                if (callback != null) callback(value,o);
+            }),state);
+        }
+
         public static void SetAsync(string key, object value, CacheCallback callback, object state)
         {
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 // Perform
                 Set(key,value);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set<T>(key,value);
 
                 // Call callback
                 if (callback != null) callback(o);
@@ -204,6 +284,17 @@ namespace Codeology.SharpCache
             }),state);
         }
 
+        public static void SetAsync<T>(string key, T value, int minutes, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set<T>(key,value,minutes);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
         public static void SetAsync(string key, object value, TimeSpan ts, CacheCallback callback, object state)
         {
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
@@ -215,11 +306,33 @@ namespace Codeology.SharpCache
             }),state);
         }
 
+        public static void SetAsync<T>(string key, T value, TimeSpan ts, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set<T>(key,value,ts);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
         public static void SetAsync(string key, object value, DateTime dt, CacheCallback callback, object state)
         {
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 // Perform
                 Set(key,value,dt);
+
+                // Call callback
+                if (callback != null) callback(o);
+            }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value, DateTime dt, CacheCallback callback, object state)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                // Perform
+                Set<T>(key,value,dt);
 
                 // Call callback
                 if (callback != null) callback(o);
