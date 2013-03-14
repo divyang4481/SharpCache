@@ -15,8 +15,6 @@ namespace Demo
     public partial class MainForm : Form
     {
 
-        private LocalCacheProvider provider;
-
         public MainForm()
         {
             InitializeComponent();
@@ -32,7 +30,7 @@ namespace Demo
 
         private void btnSet_Click(object sender, EventArgs e)
         {
-            Cache.Set(txtKey.Text,txtValue.Text,1);
+            Cache.SetAsync(txtKey.Text,txtValue.Text,1);
 
             txtKey.Clear();
             txtValue.Clear();

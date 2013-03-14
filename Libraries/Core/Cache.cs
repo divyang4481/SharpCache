@@ -8,6 +8,7 @@ using Codeology.SharpCache.Providers;
 namespace Codeology.SharpCache
 {
 
+    [Serializable]
     public class CacheException : Exception
     {
 
@@ -16,10 +17,51 @@ namespace Codeology.SharpCache
 
     }
 
+    [Serializable]
+    public class CacheAsyncException : Exception
+    {
+
+        public CacheAsyncException(string message) : base(message)
+        {
+            Key = null;
+            State = null;
+        }
+
+        public CacheAsyncException(string message, Exception inner) : base(message,inner)
+        {
+            Key = null;
+            State = null;
+        }
+
+        public CacheAsyncException(string key, object state, Exception e) : base("There was an exception in the async thread.",e)
+        {
+            Key = key;
+            State = state;
+        }
+
+        #region Properties
+
+        public string Key
+        {
+            get;
+            private set;
+        }
+
+        public object State
+        {
+            get;
+            private set;
+        }
+
+        #endregion
+
+    }
+
     public delegate void CacheCallback(object state);
     public delegate void CacheExistsCallback(bool exists, object state);
     public delegate void CacheGetCallback(object value, object state);
     public delegate void CacheGetCallback<T>(T value, object state);
+    public delegate void CacheAsyncExceptionCallback(CacheAsyncException e);
 
     public static class Cache
     {
@@ -314,146 +356,365 @@ namespace Codeology.SharpCache
 
         #region Async Methods
 
+        public static void ClearAsync()
+        {
+            ClearAsync(null);
+        }
+
+        public static void ClearAsync(CacheCallback callback)
+        {
+            ClearAsync(callback,null);
+        }
+
         public static void ClearAsync(CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Clear();
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Clear();
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(null,state,e));
+                }
             }),state);
+        }
+
+        public static void ExistsAsync(string key, CacheExistsCallback callback)
+        {
+            ExistsAsync(key,callback,null);
         }
 
         public static void ExistsAsync(string key, CacheExistsCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                bool exists = Exists(key);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(exists,o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    bool exists = Exists(key);
+
+                    // Call callback
+                    if (callback != null) callback(exists,o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void GetAsync(string key, CacheGetCallback callback)
+        {
+            GetAsync(key,callback,null);
         }
 
         public static void GetAsync(string key, CacheGetCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                object value = Get(key);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(value,o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    object value = Get(key);
+
+                    // Call callback
+                    if (callback != null) callback(value,o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void GetAsync<T>(string key, CacheGetCallback<T> callback)
+        {
+            GetAsync<T>(key,callback,null);
         }
 
         public static void GetAsync<T>(string key, CacheGetCallback<T> callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                T value = Get<T>(key);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(value,o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    T value = Get<T>(key);
+
+                    // Call callback
+                    if (callback != null) callback(value,o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync(string key, object value)
+        {
+            SetAsync(key,value,null);
+        }
+
+        public static void SetAsync(string key, object value, CacheCallback callback)
+        {
+            SetAsync(key,value,callback,null);
         }
 
         public static void SetAsync(string key, object value, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set(key,value);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set(key,value);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(null,null,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value)
+        {
+            SetAsync<T>(key,value,null);
+        }
+
+        public static void SetAsync<T>(string key, T value, CacheCallback callback)
+        {
+            SetAsync<T>(key,value,callback,null);
         }
 
         public static void SetAsync<T>(string key, T value, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set<T>(key,value);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set<T>(key,value);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync(string key, object value, int minutes)
+        {
+            SetAsync(key,value,minutes,null);
+        }
+
+        public static void SetAsync(string key, object value, int minutes, CacheCallback callback)
+        {
+            SetAsync(key,value,minutes,callback,null);
         }
 
         public static void SetAsync(string key, object value, int minutes, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set(key,value,minutes);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set(key,value,minutes);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value, int minutes)
+        {
+            SetAsync<T>(key,value,minutes,null);
+        }
+
+        public static void SetAsync<T>(string key, T value, int minutes, CacheCallback callback)
+        {
+            SetAsync<T>(key,value,minutes,callback,null);
         }
 
         public static void SetAsync<T>(string key, T value, int minutes, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set<T>(key,value,minutes);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set<T>(key,value,minutes);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync(string key, object value, TimeSpan ts)
+        {
+            SetAsync(key,value,ts,null);
+        }
+
+        public static void SetAsync(string key, object value, TimeSpan ts, CacheCallback callback)
+        {
+            SetAsync(key,value,ts,callback,null);
         }
 
         public static void SetAsync(string key, object value, TimeSpan ts, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set(key,value,ts);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set(key,value,ts);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value, TimeSpan ts)
+        {
+            SetAsync<T>(key,value,ts,null);
+        }
+
+        public static void SetAsync<T>(string key, T value, TimeSpan ts, CacheCallback callback)
+        {
+            SetAsync<T>(key,value,ts,callback,null);
         }
 
         public static void SetAsync<T>(string key, T value, TimeSpan ts, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set<T>(key,value,ts);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set<T>(key,value,ts);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync(string key, object value, DateTime dt)
+        {
+            SetAsync(key,value,dt,null);
+        }
+
+        public static void SetAsync(string key, object value, DateTime dt, CacheCallback callback)
+        {
+            SetAsync(key,value,dt,callback,null);
         }
 
         public static void SetAsync(string key, object value, DateTime dt, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set(key,value,dt);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set(key,value,dt);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void SetAsync<T>(string key, T value, DateTime dt)
+        {
+            SetAsync<T>(key,value,dt,null);
+        }
+
+        public static void SetAsync<T>(string key, T value, DateTime dt, CacheCallback callback)
+        {
+            SetAsync<T>(key,value,dt,callback,null);
         }
 
         public static void SetAsync<T>(string key, T value, DateTime dt, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Set<T>(key,value,dt);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Set<T>(key,value,dt);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
+        }
+
+        public static void UnsetAsync(string key)
+        {
+            UnsetAsync(key,null);
+        }
+
+        public static void UnsetAsync(string key, CacheCallback callback)
+        {
+            UnsetAsync(key,callback,null);
         }
 
         public static void UnsetAsync(string key, CacheCallback callback, object state)
         {
-            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
-                // Perform
-                Unset(key);
+            CacheAsyncExceptionCallback exception_handler = OnException;
 
-                // Call callback
-                if (callback != null) callback(o);
+            ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
+                try {
+                    // Perform
+                    Unset(key);
+
+                    // Call callback
+                    if (callback != null) callback(o);
+                } catch (Exception e) {
+                    if (exception_handler == null) throw;
+
+                    exception_handler(new CacheAsyncException(key,state,e));
+                }
             }),state);
         }
 
@@ -519,6 +780,12 @@ namespace Codeology.SharpCache
                 return providers_wrapper;
             }
         }
+
+        #endregion
+
+        #region Events
+
+        public static event CacheAsyncExceptionCallback OnException;
 
         #endregion
 
