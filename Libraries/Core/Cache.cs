@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 
@@ -14,6 +15,7 @@ namespace Codeology.SharpCache
 
         public CacheException(string message) : base(message) {}
         public CacheException(string message, Exception inner) : base(message,inner) {}
+        protected CacheException(SerializationInfo info, StreamingContext context) : base(info,context) {}
 
     }
 
@@ -38,6 +40,8 @@ namespace Codeology.SharpCache
             Key = key;
             State = state;
         }
+
+        protected CacheAsyncException(SerializationInfo info, StreamingContext context) : base(info,context) {}
 
         #region Properties
 
