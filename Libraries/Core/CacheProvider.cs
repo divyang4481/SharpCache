@@ -40,12 +40,34 @@ namespace Codeology.SharpCache.Providers
     public abstract class CacheProvider : IDisposable, ICacheProvider
     {
 
+        private bool disposed;
+
+        protected CacheProvider()
+        {
+            disposed = false;
+        }
+
+        ~CacheProvider()
+        {
+            Dispose(false);
+        }
+
         #region Methods
 
         public void Dispose()
         {
-            Uninitialize();
-            GC.SuppressFinalize(this);
+            Dispose(true);
+        }
+
+        protected void Dispose(bool disposing)
+        {
+            if (!disposed) {
+                if (disposing) GC.SuppressFinalize(this);
+
+                Uninitialize();
+                
+                disposed = true;
+            }
         }
 
         public virtual void Initialize()
@@ -94,6 +116,10 @@ namespace Codeology.SharpCache.Providers
 
         private const string PROVIDER_ID = "{D57E2BE7-2152-46C8-885F-882B6B55E3C7}";
         private const string PROVIDER_NAME = "Null";
+
+        public NullCacheProvider() : base()
+        {
+        }
 
         #region Methods
 

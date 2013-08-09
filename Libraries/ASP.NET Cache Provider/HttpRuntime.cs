@@ -13,6 +13,10 @@ namespace Codeology.SharpCache.Providers
         private const string PROVIDER_ID = "{EF978B71-10E9-4D15-9F21-6B5AE31A4B6F}";
         private const string PROVIDER_NAME = "ASP.NET";
 
+        public HttpRuntimeCacheProvider() : base()
+        {
+        }
+
         #region Methods
 
         public override void Clear()

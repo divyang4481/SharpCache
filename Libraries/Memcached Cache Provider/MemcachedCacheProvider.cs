@@ -30,7 +30,7 @@ namespace Codeology.SharpCache.Providers
         {
         }
 
-        public MemcacheCacheProvider(string cacheName, string[] cacheServers)
+        public MemcacheCacheProvider(string cacheName, string[] cacheServers) : base()
         {
             locker = new object();
             cache_name = cacheName;

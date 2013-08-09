@@ -29,17 +29,17 @@ namespace Codeology.SharpCache.Providers
         private long max_memory;
         private long cache_memory;
         private Dictionary<string,CachedItem> cache;
-        private bool thread_terminate;
-        private Thread thread;
+        private System.Timers.Timer timer;
 
-        public LocalCacheProvider()
+        public LocalCacheProvider() : base()
         {
             locker = new object();
             max_memory = (1024 * 1000) * 100; // Default 100mb max memory
             cache_memory = 0;
             cache = new Dictionary<string,CachedItem>();
-            thread_terminate = false;
-            thread = null;
+            timer = new System.Timers.Timer(5000);
+            timer.AutoReset = false;
+            timer.Elapsed += new System.Timers.ElapsedEventHandler(TimerElapsed);
         }
 
         #region Methods
@@ -47,76 +47,51 @@ namespace Codeology.SharpCache.Providers
         public override void Initialize()
         {
             lock (locker) {
-                // If thread is already running, return
-                if (thread != null) return;
+                // If timer is already running, return
+                if (timer.Enabled) return;
 
-                // Reset thread terminate flag
-                thread_terminate = false;
-
-                // Create thread and start
-                thread = new Thread(new ThreadStart(ThreadProc));
-                thread.IsBackground = true;
-                thread.Priority = ThreadPriority.BelowNormal;
-                thread.Start();
+                // Start timer
+                timer.Start();
             }
         }
 
         public override void Uninitialize()
         {
             lock (locker) {
-                // If thread is not running, return
-                if (thread == null) return;
+                // If timer is already stopped, return
+                if (!timer.Enabled) return;
 
-                // Signal thread to stop
-                thread_terminate = true;
-            }
-
-            // Wait for thread to stop
-            while (true) {
-                lock (locker) {
-                    if (thread == null) break;
-                }
-
-                Thread.Sleep(100);
+                // Stop timer
+                timer.Stop();
             }
         }
 
-        private void ThreadProc()
+        private void TimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            while (true) {
-                lock (locker) {
-                    // Check for thread terminate
-                    if (thread_terminate) break;
+            lock (locker) {
+                // While cache memory exceeds maximum memory
+                while (cache_memory > max_memory) {
+                    // Get oldest cached item key
+                    string oldest_key = GetOldestCachedItem();
 
-                    // While cache memory exceeds maximum memory
-                    while (cache_memory > max_memory) {
-                        // Get oldest cached item key
-                        string oldest_key = GetOldestCachedItem();
-
-                        // If we have a key, remove it from the cache
-                        if (!String.IsNullOrEmpty(oldest_key)) cache.Remove(oldest_key);
-                    }
-
-                    // Create list to store expired keys
-                    List<string> expired_keys = new List<string>();
-
-                    // Process cache for expired keys
-                    foreach(KeyValuePair<string,CachedItem> kvp in cache) {
-                        if (kvp.Value.Expires <= DateTime.UtcNow) expired_keys.Add(kvp.Key); 
-                    }
-
-                    // Remove expired cached items
-                    foreach(string key in expired_keys) cache.Remove(key);
+                    // If we have a key, remove it from the cache
+                    if (!String.IsNullOrEmpty(oldest_key)) cache.Remove(oldest_key);
                 }
 
-                // Sleep for a bit
-                Thread.Sleep(1000);
+                // Create list to store expired keys
+                List<string> expired_keys = new List<string>();
+
+                // Process cache for expired keys
+                foreach(KeyValuePair<string,CachedItem> kvp in cache) {
+                    if (kvp.Value.Expires <= DateTime.UtcNow) expired_keys.Add(kvp.Key); 
+                }
+
+                // Remove expired cached items
+                foreach(string key in expired_keys) cache.Remove(key);
             }
 
-            // Nullify thread
-            lock (locker) {
-                thread = null;
-            }
+            // Re-start timer
+            ((System.Timers.Timer)sender).Start();
         }
 
         private string GetOldestCachedItem()
