@@ -133,6 +133,7 @@ namespace Codeology.SharpCache
         }
 
         private static object locker;
+        private static string name;
         private static bool enabled;
         private static int default_timeout;
         private static ICacheProvider default_provider;
@@ -152,6 +153,7 @@ namespace Codeology.SharpCache
             if (locker != null) return;
 
             locker = new object();
+            name = String.Empty;
             enabled = true;
             default_timeout = 10;
 
@@ -209,6 +211,14 @@ namespace Codeology.SharpCache
         {
             // Create somewhere to store values
             StringBuilder builder = new StringBuilder();
+
+            // Add name if specified
+            if (!String.IsNullOrEmpty(name)) {
+                lock (locker) {
+                    builder.Append(name);
+                    builder.Append(":");
+                }
+            }
 
             // Process values
             for(int i = 0; i < values.Length; i++) {
@@ -725,6 +735,22 @@ namespace Codeology.SharpCache
         #endregion
 
         #region Properties
+
+        public static string Name
+        {
+            get {
+                lock (locker) {
+                    return name;
+                }
+            }
+            set {
+                lock (locker) {
+                    name = value;
+
+                    if (name == null) name = String.Empty;
+                }
+            }
+        }
 
         public static bool Enabled
         {
