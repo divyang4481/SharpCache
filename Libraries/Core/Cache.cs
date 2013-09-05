@@ -251,25 +251,19 @@ namespace Codeology.SharpCache
 
         public static object Get(string key)
         {
-            lock (locker) {
-                if (!enabled) return null;
+            object result = InternalGet(key);
 
-                return default_provider.Get(key);
-            }
+            return result;
         }
 
         public static T Get<T>(string key)
         {
-            lock (locker) {
-                if (!enabled) return default(T);
+            object result = InternalGet(key);
 
-                object result = default_provider.Get(key);
-
-                if (result == null) {
-                    return default(T);
-                } else {
-                    return (T)result;
-                }
+            if (result == null) {
+                return default(T);
+            } else {
+                return (T)result;
             }
         }
 
@@ -281,7 +275,7 @@ namespace Codeology.SharpCache
                 minutes = default_timeout;
             }
 
-            Set(key,value,minutes);
+            InternalSet(key,value,DateTime.UtcNow.AddMinutes(minutes));
         }
 
         public static void Set<T>(string key, T value)
@@ -292,69 +286,37 @@ namespace Codeology.SharpCache
                 minutes = default_timeout;
             }
 
-            Set<T>(key,value,minutes);
+            InternalSet(key,value,DateTime.UtcNow.AddMinutes(minutes));
         }
 
         public static void Set(string key, object value, int minutes)
         {
-            DateTime expires;
-
-            lock (locker) {
-                expires = DateTime.UtcNow.AddMinutes(minutes);
-            }
-
-            Set(key,value,expires);
+            InternalSet(key,value,DateTime.UtcNow.AddMinutes(minutes));
         }
 
         public static void Set<T>(string key, T value, int minutes)
         {
-            DateTime expires;
-
-            lock (locker) {
-                expires = DateTime.UtcNow.AddMinutes(minutes);
-            }
-
-            Set<T>(key,value,expires);
+            InternalSet(key,value,DateTime.UtcNow.AddMinutes(minutes));
         }
 
         public static void Set(string key, object value, TimeSpan ts)
         {
-            DateTime expires;
-
-            lock (locker) {
-                expires = DateTime.UtcNow.Add(ts);
-            }
-
-            Set(key,value,expires);
+            InternalSet(key,value,DateTime.UtcNow.Add(ts));
         }
 
         public static void Set<T>(string key, T value, TimeSpan ts)
         {
-            DateTime expires;
-
-            lock (locker) {
-                expires = DateTime.UtcNow.Add(ts);
-            }
-
-            Set<T>(key,value,expires);
+            InternalSet(key,value,DateTime.UtcNow.Add(ts));
         }
 
         public static void Set(string key, object value, DateTime dt)
         {
-            lock (locker) {
-                if (!enabled) return;
-
-                default_provider.Set(key,value,dt);
-            }
+            InternalSet(key,value,dt);
         }
 
         public static void Set<T>(string key, object value, DateTime dt)
         {
-            lock (locker) {
-                if (!enabled) return;
-
-                default_provider.Set(key,value,dt);
-            }
+            InternalSet(key,value,dt);
         }
 
         public static void Unset(string key)
@@ -363,6 +325,24 @@ namespace Codeology.SharpCache
                 if (!enabled) return;
 
                 default_provider.Unset(key);
+            }
+        }
+
+        private static object InternalGet(string key)
+        {
+            lock (locker) {
+                if (!enabled) return null;
+
+                return default_provider.Get(key);
+            }
+        }
+
+        private static void InternalSet(string key, object value, DateTime expires)
+        {
+            lock (locker) {
+                if (!enabled) return;
+
+                default_provider.Set(key,value,expires);
             }
         }
 
