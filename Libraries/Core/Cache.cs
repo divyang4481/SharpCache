@@ -65,6 +65,7 @@ namespace Codeology.SharpCache
     public delegate void CacheExistsCallback(bool exists, object state);
     public delegate void CacheGetCallback(object value, object state);
     public delegate void CacheGetCallback<T>(T value, object state);
+    public delegate void CacheExceptionCallback(Exception e);
     public delegate void CacheAsyncExceptionCallback(CacheAsyncException e);
 
     public static class Cache
@@ -177,7 +178,11 @@ namespace Codeology.SharpCache
             lock (locker) {
                 // Look for existing provider
                 foreach(ICacheProvider prov in providers) {
-                    if (prov.Id == provider.Id || String.Compare(prov.Name,provider.Name,true) == 0) throw new CacheException("Cache provider is already registered.");
+                    if (prov.Id == provider.Id || String.Compare(prov.Name,provider.Name,true) == 0) {
+                        var ex = new CacheException("Cache provider is already registered.");
+
+                        InternalException(ex);
+                    }
                 }
 
                 // Add new provider
@@ -236,7 +241,11 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                default_provider.Clear();
+                try {
+                    default_provider.Clear();
+                } catch (Exception e) {
+                    if (!InternalException(e)) throw;
+                }
             }
         }
 
@@ -245,7 +254,13 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return false;
 
-                return default_provider.Exists(key);
+                try {
+                    return default_provider.Exists(key);
+                } catch (Exception e) {
+                    if (!InternalException(e)) throw;
+
+                    return false;
+                }
             }
         }
 
@@ -324,7 +339,11 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                default_provider.Unset(key);
+                try {
+                    default_provider.Unset(key);
+                } catch (Exception e) {
+                    if (!InternalException(e)) throw;
+                }
             }
         }
 
@@ -333,7 +352,13 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return null;
 
-                return default_provider.Get(key);
+                try {
+                    return default_provider.Get(key);
+                } catch (Exception e) {
+                    if (!InternalException(e)) throw;
+
+                    return null;
+                }
             }
         }
 
@@ -342,7 +367,22 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
-                default_provider.Set(key,value,expires);
+                try {
+                    default_provider.Set(key,value,expires);
+                } catch (Exception e) {
+                    if (!InternalException(e)) throw;
+                }
+            }
+        }
+
+        private static bool InternalException(Exception e)
+        {
+            if (OnException != null) {
+                OnException(e);
+
+                return true;
+            } else {
+                return false;
             }
         }
 
@@ -362,7 +402,7 @@ namespace Codeology.SharpCache
 
         public static void ClearAsync(CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -386,7 +426,7 @@ namespace Codeology.SharpCache
 
         public static void ExistsAsync(string key, CacheExistsCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -410,7 +450,7 @@ namespace Codeology.SharpCache
 
         public static void GetAsync(string key, CacheGetCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -434,7 +474,7 @@ namespace Codeology.SharpCache
 
         public static void GetAsync<T>(string key, CacheGetCallback<T> callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -463,7 +503,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync(string key, object value, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -492,7 +532,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync<T>(string key, T value, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -521,7 +561,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync(string key, object value, int minutes, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -550,7 +590,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync<T>(string key, T value, int minutes, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -579,7 +619,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync(string key, object value, TimeSpan ts, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -608,7 +648,7 @@ namespace Codeology.SharpCache
 
         public static void SetAsync<T>(string key, T value, TimeSpan ts, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -637,12 +677,12 @@ namespace Codeology.SharpCache
 
         public static void SetAsync(string key, object value, DateTime dt, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
                     // Perform
-                    Set(key,value,dt);
+                    InternalSet(key,value,dt);
 
                     // Call callback
                     if (callback != null) callback(o);
@@ -666,12 +706,12 @@ namespace Codeology.SharpCache
 
         public static void SetAsync<T>(string key, T value, DateTime dt, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
                     // Perform
-                    Set<T>(key,value,dt);
+                    InternalSet(key,value,dt);
 
                     // Call callback
                     if (callback != null) callback(o);
@@ -695,7 +735,7 @@ namespace Codeology.SharpCache
 
         public static void UnsetAsync(string key, CacheCallback callback, object state)
         {
-            CacheAsyncExceptionCallback exception_handler = OnException;
+            CacheAsyncExceptionCallback exception_handler = OnAsyncException;
 
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
@@ -795,7 +835,8 @@ namespace Codeology.SharpCache
 
         #region Events
 
-        public static event CacheAsyncExceptionCallback OnException;
+        public static event CacheExceptionCallback OnException;
+        public static event CacheAsyncExceptionCallback OnAsyncException;
 
         #endregion
 
