@@ -212,18 +212,34 @@ namespace Codeology.SharpCache
             return CreateCompoundKey(value);
         }
 
+        public static string CreateUnnamedKey(object value)
+        {
+            return CreateUnnamedCompoundKey(value);
+        }
+
         public static string CreateCompoundKey(params object[] values)
+        {
+            // Get a copy of the cache name
+            string cache_name;
+
+            lock (locker) {
+                cache_name = name;
+            }
+
+            // Create list from values
+            List<object> list = new List<object>(values);
+
+            // Insert name into list
+            if (!String.IsNullOrEmpty(cache_name)) list.Insert(0,cache_name);
+
+            // Pass on
+            return CreateUnnamedCompoundKey(list.ToArray());
+        }
+
+        public static string CreateUnnamedCompoundKey(params object[] values)
         {
             // Create somewhere to store values
             StringBuilder builder = new StringBuilder();
-
-            // Add name if specified
-            if (!String.IsNullOrEmpty(name)) {
-                lock (locker) {
-                    builder.Append(name);
-                    builder.Append(":");
-                }
-            }
 
             // Process values
             for(int i = 0; i < values.Length; i++) {
