@@ -164,18 +164,22 @@ namespace Codeology.SharpCache.Providers
         public override bool Exists(string key)
         {
             lock (locker) {
-                return cache.ContainsKey(key);
+                string hashed_key = CacheUtils.HashString(key);
+
+                return cache.ContainsKey(hashed_key);
             }
         }
 
         public override object Get(string key)
         {
             lock (locker) {
+                string hashed_key = CacheUtils.HashString(key);
+
                 // If key doesn't exist, return null
-                if (!cache.ContainsKey(key)) return null;
+                if (!cache.ContainsKey(hashed_key)) return null;
 
                 // Get cached item
-                CachedItem item = cache[key];
+                CachedItem item = cache[hashed_key];
 
                 // Deserialize cached item
                 object result = Deserialize(item);
@@ -188,8 +192,10 @@ namespace Codeology.SharpCache.Providers
         public override void Set(string key, object value, DateTime dt)
         {
             lock (locker) {
+                string hashed_key = CacheUtils.HashString(key);
+
                 // If cached item exists already, remove it
-                if (cache.ContainsKey(key)) cache.Remove(key);
+                if (cache.ContainsKey(hashed_key)) cache.Remove(hashed_key);
 
                 // Serialize value to item
                 CachedItem item = Serialize(value,dt);
@@ -198,23 +204,25 @@ namespace Codeology.SharpCache.Providers
                 cache_memory += item.Value.LongLength;
 
                 // Add item to cache
-                cache.Add(key,item);
+                cache.Add(hashed_key,item);
             }
         }
 
         public override void Unset(string key)
         {
             lock (locker) {
+                string hashed_key = CacheUtils.HashString(key);
+
                 // If cache contains the key
-                if (cache.ContainsKey(key)) {
+                if (cache.ContainsKey(hashed_key)) {
                     // Get cached item
-                    CachedItem item = cache[key];
+                    CachedItem item = cache[hashed_key];
 
                     // Decrement cache size
                     cache_memory -= item.Value.LongLength;
 
                     // Remove item from cache
-                    cache.Remove(key);
+                    cache.Remove(hashed_key);
                 }
             }
         }

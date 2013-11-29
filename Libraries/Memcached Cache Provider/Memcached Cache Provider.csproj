@@ -10,8 +10,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Codeology.SharpCache.Providers</RootNamespace>
     <AssemblyName>SharpCache.Memcache</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -31,20 +32,15 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Enyim.Caching, Version=2.12.0.0, Culture=neutral, PublicKeyToken=05e9c6b5a9ec94c2, processorArchitecture=MSIL">
+      <HintPath>..\..\3rd Party\Enyim.Caching.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BeIT\HashAlgorithms.cs" />
-    <Compile Include="BeIT\LogAdapter.cs" />
-    <Compile Include="BeIT\MemcachedClient.cs" />
-    <Compile Include="BeIT\MemcachedClientException.cs" />
-    <Compile Include="BeIT\PooledSocket.cs" />
-    <Compile Include="BeIT\Serializer.cs" />
-    <Compile Include="BeIT\ServerPool.cs" />
-    <Compile Include="BeIT\SocketPool.cs" />
     <Compile Include="MemcachedCacheProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-using BeIT.MemCached;
+using Enyim.Caching;
+using Enyim.Caching.Configuration;
+using Enyim.Caching.Memcached;
 
 namespace Codeology.SharpCache.Providers
 {
@@ -21,10 +23,9 @@ namespace Codeology.SharpCache.Providers
         private const string PROVIDER_ID = "{1DDE54E8-6FEF-454D-8DCC-76E6E07B6066}";
         private const string PROVIDER_NAME = "Memcache";
 
-        private object locker;
         private string cache_name;
         private string[] cache_servers;
-        private MemcachedClient client;
+        private MemcachedClientConfiguration config;
 
         public MemcacheCacheProvider(string cacheName, string cacheServer) : this(cacheName,new string[] {cacheServer})
         {
@@ -32,58 +33,59 @@ namespace Codeology.SharpCache.Providers
 
         public MemcacheCacheProvider(string cacheName, string[] cacheServers) : base()
         {
-            locker = new object();
             cache_name = cacheName;
             cache_servers = cacheServers;
-            client = null;
+            config = null;
         }
 
         #region Methods
 
         public override void Initialize()
         {
-            // Set up client
-            MemcachedClient.Setup(cache_name,cache_servers);
+            // Set up configuration
+            config = new MemcachedClientConfiguration();
 
-            // Get client instance
-            client = MemcachedClient.GetInstance(cache_name);
+            var ts = new TimeSpan(0,0,30);
+
+            config.SocketPool.ConnectionTimeout = ts;
+            config.SocketPool.ReceiveTimeout = ts;
+            config.SocketPool.DeadTimeout = ts;
+            //config.SocketPool.QueueTimeout = ys;
+
+            foreach(string server in cache_servers) config.AddServer(server);
+
+            config.Protocol = MemcachedProtocol.Text;
         }
 
         public override void Clear()
         {
-            lock (locker) {
-                bool result = client.FlushAll();
-
-                if (!result) throw new MemcacheException("Could not clear all items from Memcache.");
+            using (MemcachedClient client = new MemcachedClient(config)) {
+                client.FlushAll();
             }
         }
 
         public override bool Exists(string key)
         {
-            lock (locker) {
-                object value;
+            object result = Get(key);
 
-                try {
-                    value = client.Get(key);
-                } catch {
-                    value = null;
-                }
-
-                return (value != null);
-            }
+            return (key != null);
         }
 
         public override object Get(string key)
         {
-            lock (locker) {
-                return client.Get(key);
+            string hashed_key = GetKey(key);
+
+            using (MemcachedClient client = new MemcachedClient(config)) {
+                return client.Get(hashed_key);
             }
         }
 
         public override void Set(string key, object value, DateTime dt)
         {
-            lock (locker) {
-                bool result = client.Set(key,value,dt);
+            string hashed_key = GetKey(key);
+
+            using (MemcachedClient client = new MemcachedClient(config)) {
+                bool result = client.Store(StoreMode.Set,hashed_key,value,dt);
 
                 if (!result) throw new MemcacheException("Could not set item in Memcache.");
             }
@@ -91,8 +93,10 @@ namespace Codeology.SharpCache.Providers
 
         public override void Unset(string key)
         {
-            lock (locker) {
-                bool result = client.Delete(key);
+            string hashed_key = GetKey(key);
+
+            using (MemcachedClient client = new MemcachedClient(config)) {
+                bool result = client.Remove(hashed_key);
 
                 if (!result) throw new MemcacheException("Could not unset item in Memcache.");
             }
@@ -108,16 +112,27 @@ namespace Codeology.SharpCache.Providers
             return PROVIDER_NAME;
         }
 
+        private string GetKey(string key)
+        {
+            string buffer;
+
+            if (String.IsNullOrEmpty(cache_name)) {
+                buffer = key;
+            } else {
+                buffer = cache_name + ":" + key;
+            }
+
+            return CacheUtils.HashString(buffer);
+        }
+
         #endregion
 
         #region Properties
 
-        public MemcachedClient Client
+        public MemcachedClientConfiguration Configuration
         {
             get {
-                lock (locker) {
-                    return client;
-                }
+                return config;
             }
         }
 

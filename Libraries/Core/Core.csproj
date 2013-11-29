@@ -40,6 +40,7 @@
     <Compile Include="Cache.cs" />
     <Compile Include="CacheProvider.cs" />
     <Compile Include="CacheUtils.cs" />
+    <Compile Include="NullStream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />

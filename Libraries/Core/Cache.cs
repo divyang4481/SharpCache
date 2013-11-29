@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 
@@ -13,48 +16,100 @@ namespace Codeology.SharpCache
     public class CacheException : Exception
     {
 
-        public CacheException(string message) : base(message) {}
-        public CacheException(string message, Exception inner) : base(message,inner) {}
-        protected CacheException(SerializationInfo info, StreamingContext context) : base(info,context) {}
+        private string cache_key;
 
-    }
-
-    [Serializable]
-    public class CacheAsyncException : Exception
-    {
-
-        public CacheAsyncException(string message) : base(message)
+        public CacheException(string message) : base(message)
         {
-            Key = null;
-            State = null;
+            cache_key = String.Empty;
         }
 
-        public CacheAsyncException(string message, Exception inner) : base(message,inner)
+        public CacheException(string message, Exception inner) : base(message,inner)
         {
-            Key = null;
-            State = null;
+            cache_key = String.Empty;
         }
 
-        public CacheAsyncException(string key, object state, Exception e) : base("There was an exception in the async thread.",e)
+        public CacheException(string key, string message) : base(message)
         {
-            Key = key;
-            State = state;
+            cache_key = key;
         }
 
-        protected CacheAsyncException(SerializationInfo info, StreamingContext context) : base(info,context) {}
+        public CacheException(string key, string message, Exception inner) : base(message,inner)
+        {
+            cache_key = key;
+        }
+
+        protected CacheException(SerializationInfo info, StreamingContext context) : base(info,context)
+        {
+            cache_key = (string)info.GetString("cache_key");
+        }
+
+        #region Methods
+
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            // Inherited call
+            base.GetObjectData(info,context);
+
+            // Add key
+            info.AddValue("cache_key",cache_key);
+        }
+
+        #endregion
 
         #region Properties
 
         public string Key
         {
-            get;
-            private set;
+            get {
+                return cache_key;
+            }
+            set {
+                cache_key = value;
+            }
         }
+
+        #endregion
+
+    }
+
+    [Serializable]
+    public class CacheAsyncException : CacheException
+    {
+
+        private object cache_state;
+
+        public CacheAsyncException(string message) : base(message)
+        {
+            cache_state = null;
+        }
+
+        public CacheAsyncException(string message, Exception inner) : base(message,inner)
+        {
+            cache_state = null;
+        }
+
+        public CacheAsyncException(string key, object state, string message) : base(key,message)
+        {
+            cache_state = state;
+        }
+
+        public CacheAsyncException(string key, object state, string message, Exception inner) : base(key,message,inner)
+        {
+            cache_state = state;
+        }
+
+        protected CacheAsyncException(SerializationInfo info, StreamingContext context) : base(info,context)
+        {
+            cache_state = null;
+        }
+
+        #region Properties
 
         public object State
         {
-            get;
-            private set;
+            get {
+                return cache_state;
+            }
         }
 
         #endregion
@@ -65,7 +120,7 @@ namespace Codeology.SharpCache
     public delegate void CacheExistsCallback(bool exists, object state);
     public delegate void CacheGetCallback(object value, object state);
     public delegate void CacheGetCallback<T>(T value, object state);
-    public delegate void CacheExceptionCallback(Exception e);
+    public delegate void CacheExceptionCallback(CacheException e);
     public delegate void CacheAsyncExceptionCallback(CacheAsyncException e);
 
     public static class Cache
@@ -140,6 +195,7 @@ namespace Codeology.SharpCache
         private static ICacheProvider default_provider;
         private static List<ICacheProvider> providers;
         private static CacheProviders providers_wrapper;
+        private static bool ignore_unserializable;
 
         static Cache()
         {
@@ -166,6 +222,8 @@ namespace Codeology.SharpCache
             RegisterProvider(null_provider);
 
             providers_wrapper = new CacheProviders(locker,providers);
+
+            ignore_unserializable = false;
         }
 
         public static void RegisterProvider(ICacheProvider provider)
@@ -181,7 +239,7 @@ namespace Codeology.SharpCache
                     if (prov.Id == provider.Id || String.Compare(prov.Name,provider.Name,true) == 0) {
                         var ex = new CacheException("Cache provider is already registered.");
 
-                        InternalException(ex);
+                        InternalException(null,ex);
                     }
                 }
 
@@ -248,8 +306,33 @@ namespace Codeology.SharpCache
                 if (i != (values.Length - 1)) builder.Append(":");
             }
 
+            // Get key
+            string key = builder.ToString();
+
             // Return
-            return CacheUtils.HashString(builder.ToString());
+            return key;
+        }
+
+        public static bool CanSerialize(object value)
+        {
+            using (Stream stream = new NullStream()) {
+                try {
+                    BinaryFormatter formatter = new BinaryFormatter();
+
+                    formatter.Serialize(stream,value);
+                } catch {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool CanSerialize<T>(T value)
+        {
+            object obj = (object)value;
+
+            return CanSerialize(obj);
         }
 
         public static void Clear()
@@ -260,7 +343,7 @@ namespace Codeology.SharpCache
                 try {
                     default_provider.Clear();
                 } catch (Exception e) {
-                    if (!InternalException(e)) throw;
+                    if (!InternalException(null,e)) throw;
                 }
             }
         }
@@ -273,7 +356,7 @@ namespace Codeology.SharpCache
                 try {
                     return default_provider.Exists(key);
                 } catch (Exception e) {
-                    if (!InternalException(e)) throw;
+                    if (!InternalException(key,e)) throw;
 
                     return false;
                 }
@@ -358,7 +441,7 @@ namespace Codeology.SharpCache
                 try {
                     default_provider.Unset(key);
                 } catch (Exception e) {
-                    if (!InternalException(e)) throw;
+                    if (!InternalException(key,e)) throw;
                 }
             }
         }
@@ -371,7 +454,7 @@ namespace Codeology.SharpCache
                 try {
                     return default_provider.Get(key);
                 } catch (Exception e) {
-                    if (!InternalException(e)) throw;
+                    if (!InternalException(key,e)) throw;
 
                     return null;
                 }
@@ -383,18 +466,54 @@ namespace Codeology.SharpCache
             lock (locker) {
                 if (!enabled) return;
 
+                if (ignore_unserializable) {
+                    if (!CanSerialize(value)) return;
+                }
+
                 try {
                     default_provider.Set(key,value,expires);
                 } catch (Exception e) {
-                    if (!InternalException(e)) throw;
+                    if (!InternalException(key,e)) throw;
                 }
             }
         }
 
-        private static bool InternalException(Exception e)
+        private static bool InternalException(string key, Exception e)
         {
             if (OnException != null) {
-                OnException(e);
+                CacheException ex = new CacheException(key ?? String.Empty,"there was an internal cache exception.",e);
+
+                OnException(ex);
+
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        private static void InternalSetAsync(string key, object value, DateTime expires, object state)
+        {
+            lock (locker) {
+                if (!enabled) return;
+
+                if (ignore_unserializable) {
+                    if (!CanSerialize(value)) return;
+                }
+
+                try {
+                    default_provider.Set(key,value,expires);
+                } catch (Exception e) {
+                    if (!InternalAsyncException(key,state,e)) throw;
+                }
+            }
+        }
+
+        private static bool InternalAsyncException(string key, object state, Exception e)
+        {
+            if (OnAsyncException != null) {
+                CacheAsyncException ex = new CacheAsyncException(key,state,"There was an internal cache async exception.",e);
+
+                OnAsyncException(ex);
 
                 return true;
             } else {
@@ -430,7 +549,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(null,state,e));
+                    exception_handler(new CacheAsyncException(null,state,"Failed to clear the cache.",e));
                 }
             }),state);
         }
@@ -454,7 +573,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to check if the given item exists in the cahce.",e));
                 }
             }),state);
         }
@@ -478,7 +597,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to get item from the cache.",e));
                 }
             }),state);
         }
@@ -502,7 +621,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to get item from the cache.",e));
                 }
             }),state);
         }
@@ -531,7 +650,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(null,null,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -560,7 +679,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -589,7 +708,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -618,7 +737,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -647,7 +766,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -676,7 +795,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -698,14 +817,14 @@ namespace Codeology.SharpCache
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
                     // Perform
-                    InternalSet(key,value,dt);
+                    InternalSetAsync(key,value,dt,state);
 
                     // Call callback
                     if (callback != null) callback(o);
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -727,14 +846,14 @@ namespace Codeology.SharpCache
             ThreadPool.QueueUserWorkItem(new WaitCallback(delegate(object o) {
                 try {
                     // Perform
-                    InternalSet(key,value,dt);
+                    InternalSetAsync(key,value,dt,state);
 
                     // Call callback
                     if (callback != null) callback(o);
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to set item in the cache.",e));
                 }
             }),state);
         }
@@ -763,7 +882,7 @@ namespace Codeology.SharpCache
                 } catch (Exception e) {
                     if (exception_handler == null) throw;
 
-                    exception_handler(new CacheAsyncException(key,state,e));
+                    exception_handler(new CacheAsyncException(key,state,"Failed to unset item in the cache.",e));
                 }
             }),state);
         }
@@ -844,6 +963,20 @@ namespace Codeology.SharpCache
         {
             get {
                 return providers_wrapper;
+            }
+        }
+
+        public static bool IgnoreUnserializable
+        {
+            get {
+                lock (locker) {
+                    return ignore_unserializable;
+                }
+            }
+            set {
+                lock (locker) {
+                    ignore_unserializable = value;
+                }
             }
         }
 

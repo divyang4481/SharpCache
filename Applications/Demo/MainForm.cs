@@ -20,7 +20,7 @@ namespace Demo
             InitializeComponent();
 
             // Create provider
-            ICacheProvider provider = new LocalCacheProvider();
+            ICacheProvider provider = new MemcacheCacheProvider("Test","127.0.0.1:11211");
 
             provider.Initialize();
 

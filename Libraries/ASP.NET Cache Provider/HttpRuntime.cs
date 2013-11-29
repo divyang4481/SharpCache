@@ -33,24 +33,31 @@ namespace Codeology.SharpCache.Providers
 
         public override bool Exists(string key)
         {
-            object value = HttpRuntime.Cache[key];
+            string hashed_key = CacheUtils.HashString(key);
+            object value = HttpRuntime.Cache[hashed_key];
 
             return (value != null);
         }
 
         public override object Get(string key)
         {
-            return HttpRuntime.Cache[key];
+            string hashed_key = CacheUtils.HashString(key);
+
+            return HttpRuntime.Cache[hashed_key];
         }
 
         public override void Set(string key, object value, DateTime dt)
         {
-            HttpRuntime.Cache.Insert(key,value,null,dt,System.Web.Caching.Cache.NoSlidingExpiration);
+            string hashed_key = CacheUtils.HashString(key);
+
+            HttpRuntime.Cache.Insert(hashed_key,value,null,dt,System.Web.Caching.Cache.NoSlidingExpiration);
         }
 
         public override void Unset(string key)
         {
-            HttpRuntime.Cache.Remove(key);
+            string hashed_key = CacheUtils.HashString(key);
+
+            HttpRuntime.Cache.Remove(hashed_key);
         }
 
         protected override Guid GetId()

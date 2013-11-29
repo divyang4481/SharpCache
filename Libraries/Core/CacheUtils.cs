@@ -6,7 +6,7 @@ using System.Text;
 namespace Codeology.SharpCache
 {
 
-    internal static class CacheUtils
+    public static class CacheUtils
     {
 
         #region Methods
