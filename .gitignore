@@ -1,4 +1,3 @@
-
 /Bin
 /Applications/Demo/obj
 /Libraries/Core/obj
@@ -7,3 +6,5 @@
 /Libraries/Memcached Cache Provider/obj
 *.suo
 /Applications\Demo/
+*.vssscc
+*.vspscc
