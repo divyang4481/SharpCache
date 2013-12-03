@@ -6,3 +6,4 @@
 /Libraries/ASP.NET Cache Provider/obj
 /Libraries/Memcached Cache Provider/obj
 *.suo
+/Applications\Demo/

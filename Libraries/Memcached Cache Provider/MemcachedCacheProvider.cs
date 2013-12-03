@@ -26,6 +26,7 @@ namespace Codeology.SharpCache.Providers
         private string cache_name;
         private string[] cache_servers;
         private MemcachedClientConfiguration config;
+        private MemcachedClient client;
 
         public MemcacheCacheProvider(string cacheName, string cacheServer) : this(cacheName,new string[] {cacheServer})
         {
@@ -51,17 +52,26 @@ namespace Codeology.SharpCache.Providers
             config.SocketPool.ReceiveTimeout = ts;
             config.SocketPool.DeadTimeout = ts;
             //config.SocketPool.QueueTimeout = ys;
+            config.SocketPool.MinPoolSize = 1;
+            config.SocketPool.MaxPoolSize = 10;
 
             foreach(string server in cache_servers) config.AddServer(server);
 
             config.Protocol = MemcachedProtocol.Text;
+
+            // Create client
+            client = new MemcachedClient(config);
+        }
+
+        public override void Uninitialize()
+        {
+            // Release client
+            client.Dispose();
         }
 
         public override void Clear()
         {
-            using (MemcachedClient client = new MemcachedClient(config)) {
-                client.FlushAll();
-            }
+            client.FlushAll();
         }
 
         public override bool Exists(string key)
@@ -75,31 +85,23 @@ namespace Codeology.SharpCache.Providers
         {
             string hashed_key = GetKey(key);
 
-            using (MemcachedClient client = new MemcachedClient(config)) {
-                return client.Get(hashed_key);
-            }
+            return client.Get(hashed_key);
         }
 
         public override void Set(string key, object value, DateTime dt)
         {
             string hashed_key = GetKey(key);
+            bool result = client.Store(StoreMode.Set,hashed_key,value,dt);
 
-            using (MemcachedClient client = new MemcachedClient(config)) {
-                bool result = client.Store(StoreMode.Set,hashed_key,value,dt);
-
-                if (!result) throw new MemcacheException("Could not set item in Memcache.");
-            }
+            if (!result) throw new MemcacheException("Could not set item in Memcache.");
         }
 
         public override void Unset(string key)
         {
             string hashed_key = GetKey(key);
+            bool result = client.Remove(hashed_key);
 
-            using (MemcachedClient client = new MemcachedClient(config)) {
-                bool result = client.Remove(hashed_key);
-
-                if (!result) throw new MemcacheException("Could not unset item in Memcache.");
-            }
+            if (!result) throw new MemcacheException("Could not unset item in Memcache.");
         }
 
         protected override Guid GetId()
@@ -129,12 +131,12 @@ namespace Codeology.SharpCache.Providers
 
         #region Properties
 
-        public MemcachedClientConfiguration Configuration
-        {
-            get {
-                return config;
-            }
-        }
+        //public MemcachedClientConfiguration Configuration
+        //{
+        //    get {
+        //        return config;
+        //    }
+        //}
 
         #endregion
 

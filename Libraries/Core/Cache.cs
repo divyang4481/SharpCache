@@ -315,6 +315,8 @@ namespace Codeology.SharpCache
 
         public static bool CanSerialize(object value)
         {
+            if (value == null) return false;
+
             using (Stream stream = new NullStream()) {
                 try {
                     BinaryFormatter formatter = new BinaryFormatter();
