@@ -23,6 +23,7 @@ namespace Codeology.SharpCache.Providers
         private const string PROVIDER_ID = "{1DDE54E8-6FEF-454D-8DCC-76E6E07B6066}";
         private const string PROVIDER_NAME = "Memcache";
 
+        private object locker;
         private string cache_name;
         private string[] cache_servers;
         private MemcachedClientConfiguration config;
@@ -34,39 +35,54 @@ namespace Codeology.SharpCache.Providers
 
         public MemcacheCacheProvider(string cacheName, string[] cacheServers) : base()
         {
+            locker = new object();
             cache_name = cacheName;
             cache_servers = cacheServers;
             config = null;
+            client = null;
         }
 
         #region Methods
 
         public override void Initialize()
         {
-            // Set up configuration
-            config = new MemcachedClientConfiguration();
+            lock (locker) {
+                // Check we don't already have a client
+                if (client != null) return;
 
-            var ts = new TimeSpan(0,0,30);
+                // Set up configuration
+                config = new MemcachedClientConfiguration();
 
-            config.SocketPool.ConnectionTimeout = ts;
-            config.SocketPool.ReceiveTimeout = ts;
-            config.SocketPool.DeadTimeout = ts;
-            //config.SocketPool.QueueTimeout = ys;
-            config.SocketPool.MinPoolSize = 1;
-            config.SocketPool.MaxPoolSize = 10;
+                var ts = new TimeSpan(0,0,30);
 
-            foreach(string server in cache_servers) config.AddServer(server);
+                config.SocketPool.ConnectionTimeout = ts;
+                config.SocketPool.ReceiveTimeout = ts;
+                config.SocketPool.DeadTimeout = ts;
+                //config.SocketPool.QueueTimeout = ys;
+                config.SocketPool.MinPoolSize = 1;
+                config.SocketPool.MaxPoolSize = 10;
 
-            config.Protocol = MemcachedProtocol.Text;
+                foreach(string server in cache_servers) config.AddServer(server);
 
-            // Create client
-            client = new MemcachedClient(config);
+                config.Protocol = MemcachedProtocol.Text;
+
+                // Create client
+                client = new MemcachedClient(config);
+            }
         }
 
         public override void Uninitialize()
         {
-            // Release client
-            client.Dispose();
+            lock (locker) {
+                // Check we don't have a client
+                if (client == null) return;
+
+                // Release client
+                client.Dispose();
+
+                // Nullify
+                client = null;
+            }
         }
 
         public override void Clear()
@@ -126,17 +142,6 @@ namespace Codeology.SharpCache.Providers
 
             return CacheUtils.HashString(buffer);
         }
-
-        #endregion
-
-        #region Properties
-
-        //public MemcachedClientConfiguration Configuration
-        //{
-        //    get {
-        //        return config;
-        //    }
-        //}
 
         #endregion
 

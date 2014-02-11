@@ -60,14 +60,14 @@
             // 
             this.txtKey.Location = new System.Drawing.Point(8, 24);
             this.txtKey.Name = "txtKey";
-            this.txtKey.Size = new System.Drawing.Size(360, 20);
+            this.txtKey.Size = new System.Drawing.Size(816, 20);
             this.txtKey.TabIndex = 1;
             // 
             // txtValue
             // 
             this.txtValue.Location = new System.Drawing.Point(8, 72);
             this.txtValue.Name = "txtValue";
-            this.txtValue.Size = new System.Drawing.Size(360, 20);
+            this.txtValue.Size = new System.Drawing.Size(816, 20);
             this.txtValue.TabIndex = 2;
             // 
             // btnSet
@@ -107,14 +107,14 @@
             this.txtOutput.Name = "txtOutput";
             this.txtOutput.ReadOnly = true;
             this.txtOutput.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.txtOutput.Size = new System.Drawing.Size(360, 352);
+            this.txtOutput.Size = new System.Drawing.Size(816, 352);
             this.txtOutput.TabIndex = 6;
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(377, 489);
+            this.ClientSize = new System.Drawing.Size(833, 489);
             this.Controls.Add(this.txtOutput);
             this.Controls.Add(this.btnClear);
             this.Controls.Add(this.btnGet);

@@ -237,9 +237,13 @@ namespace Codeology.SharpCache
                 // Look for existing provider
                 foreach(ICacheProvider prov in providers) {
                     if (prov.Id == provider.Id || String.Compare(prov.Name,provider.Name,true) == 0) {
-                        var ex = new CacheException("Cache provider is already registered.");
+                        //var ex = new CacheException("Cache provider is already registered.");
+                        //
+                        //InternalException(null,ex);
 
-                        InternalException(null,ex);
+                        if (makeDefault) default_provider = provider;
+
+                        return;
                     }
                 }
 
@@ -892,6 +896,13 @@ namespace Codeology.SharpCache
         #endregion
 
         #region Properties
+
+        public static object Locker
+        {
+            get {
+                return locker;
+            }
+        }
 
         public static string Name
         {
